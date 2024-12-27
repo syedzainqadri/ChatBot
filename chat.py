@@ -103,19 +103,16 @@ def get_response(message):
 
 if os.path.exists('data.pkl'):
     store = load_from_pickle('data.pkl')
-
-import streamlit as st
-
-st.title("CHat BOT")
-st.header("CHat Bot For You")
-i = 1
-import time
-message = st.text_input("YOur  QUery here")
-if message:
-    if 'bye' in message.lower():
-        st.write(get_response(message))
-        time.sleep(5)
-        st.stop()
+    
+while True:
+    message = input('Write Your Query Here...:')
+    if "bye" in message.lower():
+        print(get_response(message))
+        save_to_pickle("data.pkl",store)
+        print("-"*40)
+        print(store)
+        break
     else:
-        st.write(get_response(message))
-        
+        print(get_response(message))
+    
+    
