@@ -11,9 +11,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
-
 import warnings
-
 warnings.filterwarnings("ignore")
 
 # Initialize Flask app
@@ -32,48 +30,80 @@ os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 model = ChatGroq(model="llama-3.1-8b-instant")
 parser = StrOutputParser()
 history_dir = "chat_histories"
-
 # Ensure history directory exists
 if not os.path.exists(history_dir):
     os.makedirs(history_dir)
-
 # VectorStore path
 vector_store_path = "faiss_index"
 
-# Scrape website content and create vector store
-def scrape_and_create_vector_store(url):
-    loader = WebBaseLoader(url)
-    documents = loader.load()
+urls = [
+    "https://wattlesol.com/are-seo-services-worth-it",
+    "https://wattlesol.com/about-us",
+    "https://wattlesol.com/case-studies",
+    "https://wattlesol.com/blogs",
+    "https://wattlesol.com/contact-us",
+    "https://wattlesol.com/faqs",
+    "https://wattlesol.com/how-devops-can-save-disasters-in-production-grade-applications",
+    "https://wattlesol.com/karatbars",
+    "https://wattlesol.com/managed-it-services",
+    "https://wattlesol.com/micro-services-are-the-future-of-seamless-operations-in-application-development",
+    "https://wattlesol.com/contact-center",
+    "https://wattlesol.com",
+    "https://wattlesol.com/ormeus",
+    "https://wattlesol.com/privacy-policy",
+    "https://wattlesol.com/ppc-advertising",
+    "https://wattlesol.com/softbank",
+    "https://wattlesol.com/sales-and-marketing",
+    "https://wattlesol.com/solutions",
+    "https://wattlesol.com/software-development",
+    "https://wattlesol.com/team",
+    "https://wattlesol.com/terms-and-conditions",
+    "https://wattlesol.com/staff-augmentation",
+    "https://wattlesol.com/ui-ux",
+    "https://wattlesol.com/why-staff-augmentation-is-the-best-solution-for-software-companies"
+]
 
-    # Split large documents
+
+def scrape_urls_and_create_vector_store(urls):
+    all_documents = []
+
+    # Load content from each URL
+    for url in urls:
+        try:
+            print(f"Loading content from: {url}")
+            loader = WebBaseLoader(url)
+            documents = loader.load()
+            all_documents.extend(documents)
+        except Exception as e:
+            print(f"Failed to load content from {url}: {e}")
+
+    # Split content into smaller chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    split_documents = text_splitter.split_documents(documents)
+    split_documents = text_splitter.split_documents(all_documents)
 
-    # Create embeddings and FAISS vector store
+    # Create embeddings and build FAISS vector store
     embeddings = OpenAIEmbeddings()
     vector_store = FAISS.from_documents(split_documents, embeddings)
 
-    # Save vector store
+    # Save the vector store locally
     vector_store.save_local(vector_store_path)
+    print(f"Vector store saved at {vector_store_path}")
     return vector_store
 
-# Load existing vector store or create a new one
 def load_vector_store():
-    if os.path.exists(f"{vector_store_path}.faiss") and os.path.exists(f"{vector_store_path}.pkl"):
-        return FAISS.load_local(vector_store_path, OpenAIEmbeddings())
+    # Check if both files exist
+    if os.path.exists(f"{vector_store_path}/index.faiss") and os.path.exists(f"{vector_store_path}/index.pkl"):
+        try:
+            # Allow dangerous deserialization to load .pkl files safely
+            vector_store = FAISS.load_local(vector_store_path, OpenAIEmbeddings(), allow_dangerous_deserialization=True)
+            print("Vector store loaded successfully.")
+            return vector_store
+        except Exception as e:
+            print(f"Error loading vector store: {e}")
+            raise e
     else:
-        return scrape_and_create_vector_store("https://www.wattlesol.com/")
-
-# Initialize vector store
-vector_store = load_vector_store()
-
-# Retrieval chain for refining answers
-retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 5})
-retrieval_chain = RetrievalQA.from_chain_type(
-    llm=model,
-    retriever=retriever,
-    return_source_documents=True
-)
+        print("Vector store files not found. Creating a new vector store...")
+        return scrape_urls_and_create_vector_store(urls)
 
 # Session history management
 def get_session_history(session_id: str):
@@ -95,6 +125,18 @@ You are a professional company representative for Wattlesol, a leading solutions
 
 User query: {message}
 """
+
+# Initialize vector store
+vector_store = load_vector_store()
+
+# Retrieval chain for refining answers
+retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+retrieval_chain = RetrievalQA.from_chain_type(
+    llm=model,
+    retriever=retriever,
+    return_source_documents=True
+)
+
 
 # Routes
 @app.route('/chatbot-widget.js')
