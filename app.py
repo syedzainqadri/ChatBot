@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template, send_file
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import pickle
@@ -16,6 +17,7 @@ warnings.filterwarnings("ignore")
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app)
 
 # Load environment variables
 load_dotenv()
@@ -139,7 +141,7 @@ retrieval_chain = RetrievalQA.from_chain_type(
 
 
 # Routes
-@app.route('/chatbot-widget.js')
+@app.route('/chatbot')
 def serve_widget():
     return send_file('chatbot-widget.js')
 
